@@ -1,0 +1,97 @@
+{
+  "name": "github-profile-switcher",
+  "displayName": "GitHub Profile Switcher",
+  "description": "Switch between multiple GitHub accounts with separate configurations",
+  "version": "1.0.0",
+  "publisher": "github-profile-switcher",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "github-profile-switcher.switchProfile",
+        "title": "Switch GitHub Profile",
+        "category": "GitHub Profile"
+      },
+      {
+        "command": "github-profile-switcher.addProfile",
+        "title": "Add GitHub Profile",
+        "category": "GitHub Profile"
+      },
+      {
+        "command": "github-profile-switcher.listProfiles",
+        "title": "List GitHub Profiles",
+        "category": "GitHub Profile"
+      },
+      {
+        "command": "github-profile-switcher.testSSH",
+        "title": "Test SSH Connection",
+        "category": "GitHub Profile"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "github-profile-switcher.switchProfile",
+          "when": "true"
+        },
+        {
+          "command": "github-profile-switcher.addProfile",
+          "when": "true"
+        },
+        {
+          "command": "github-profile-switcher.listProfiles",
+          "when": "true"
+        },
+        {
+          "command": "github-profile-switcher.testSSH",
+          "when": "true"
+        }
+      ],
+      "statusBar": [
+        {
+          "command": "github-profile-switcher.switchProfile",
+          "when": "true"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "GitHub Profile Switcher",
+      "properties": {
+        "github-profile-switcher.configPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the GitHub profiles configuration file"
+        },
+        "github-profile-switcher.showInStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show current profile in status bar"
+        },
+        "github-profile-switcher.autoSwitch": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically switch profiles based on workspace"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.60.0",
+    "@types/node": "16.x",
+    "typescript": "^4.4.3"
+  }
+}
