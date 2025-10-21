@@ -2,17 +2,22 @@
 """
 Git Helper Dialogue - Interactive Git operations tool
 Provides a user-friendly dialogue interface for common Git operations
+Version: 1.0.0
 """
 
 import subprocess
 import sys
 import os
+import json
 from typing import List, Optional, Tuple
 from datetime import datetime
 
 class GitHelperDialogue:
+    VERSION = "1.0.0"
+    
     def __init__(self):
         self.repo_path = self._get_repo_path()
+        self.version_info = self._get_version_info()
         
     def _get_repo_path(self) -> str:
         """Get the current repository path"""
@@ -30,6 +35,23 @@ class GitHelperDialogue:
             print("   git clone <repository-url>")
             print("\n📁 Current directory:", os.getcwd())
             sys.exit(1)
+    
+    def _get_version_info(self) -> dict:
+        """Get version information"""
+        return {
+            "version": self.VERSION,
+            "build_date": "2024-01-15",
+            "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+            "git_version": self._get_git_version()
+        }
+    
+    def _get_git_version(self) -> str:
+        """Get Git version"""
+        try:
+            result = subprocess.run(['git', '--version'], capture_output=True, text=True, check=True)
+            return result.stdout.strip()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return "Not available"
     
     def _run_git_command(self, args: List[str], capture_output: bool = True) -> Tuple[int, str, str]:
         """Run a git command and return exit code, stdout, stderr"""
@@ -501,6 +523,199 @@ class GitHelperDialogue:
         
         input("\n⏸️ Press Enter to continue...")
     
+    def show_version_info(self) -> None:
+        """Show version information"""
+        print("\n📋 Version Information")
+        print("=" * 30)
+        
+        print(f"🔧 Git Helper Dialogue: v{self.version_info['version']}")
+        print(f"📅 Build Date: {self.version_info['build_date']}")
+        print(f"🐍 Python Version: {self.version_info['python_version']}")
+        print(f"📦 Git Version: {self.version_info['git_version']}")
+        
+        # Check for updates
+        print("\n🔄 Checking for updates...")
+        self._check_for_updates()
+        
+        input("\n⏸️ Press Enter to continue...")
+    
+    def _check_for_updates(self) -> None:
+        """Check for available updates"""
+        try:
+            # This would typically check a remote repository or API
+            # For now, we'll simulate a check
+            print("✅ You're running the latest version!")
+            print("💡 To update manually:")
+            print("   git pull origin main")
+            print("   pip install --upgrade git-helper-dialogue")
+        except Exception as e:
+            print(f"⚠️ Could not check for updates: {e}")
+    
+    def create_version_tag(self) -> None:
+        """Create a version tag"""
+        print("\n🏷️ Create Version Tag")
+        print("=" * 25)
+        
+        # Get current status
+        exit_code, stdout, stderr = self._run_git_command(['status', '--porcelain'])
+        if stdout.strip():
+            print("⚠️ You have uncommitted changes.")
+            if not self._confirm_action("Continue anyway?"):
+                input("\n⏸️ Press Enter to continue...")
+                return
+        
+        # Get tag name
+        tag_name = self._get_user_input("Enter tag name (e.g., v1.0.0)")
+        if not tag_name:
+            print("❌ Tag name cannot be empty")
+            input("\n⏸️ Press Enter to continue...")
+            return
+        
+        # Get tag message
+        tag_message = self._get_user_input("Enter tag message (optional)")
+        
+        # Create tag
+        args = ['tag']
+        if tag_message:
+            args.extend(['-a', tag_name, '-m', tag_message])
+        else:
+            args.append(tag_name)
+        
+        print(f"🏷️ Creating tag: {tag_name}")
+        exit_code, stdout, stderr = self._run_git_command(args)
+        
+        if exit_code == 0:
+            print(f"✅ Tag '{tag_name}' created successfully!")
+            
+            # Ask if user wants to push the tag
+            if self._confirm_action("Push tag to remote?"):
+                print(f"🚀 Pushing tag '{tag_name}'...")
+                exit_code, stdout, stderr = self._run_git_command(['push', 'origin', tag_name])
+                if exit_code == 0:
+                    print(f"✅ Tag '{tag_name}' pushed successfully!")
+                else:
+                    print(f"❌ Failed to push tag: {stderr}")
+        else:
+            print(f"❌ Failed to create tag: {stderr}")
+        
+        input("\n⏸️ Press Enter to continue...")
+    
+    def list_tags(self) -> None:
+        """List all tags"""
+        print("\n🏷️ Version Tags")
+        print("=" * 20)
+        
+        exit_code, stdout, stderr = self._run_git_command(['tag', '-l', '--sort=-version:refname'])
+        if stdout.strip():
+            print("📋 Available tags:")
+            print(stdout)
+        else:
+            print("📋 No tags found")
+        
+        # Show tag details if any exist
+        if stdout.strip():
+            latest_tag = stdout.strip().split('\n')[0]
+            print(f"\n🔍 Latest tag: {latest_tag}")
+            
+            # Show tag details
+            exit_code, stdout, stderr = self._run_git_command(['show', '--no-patch', '--format=fuller', latest_tag])
+            if stdout.strip():
+                print(f"\n📝 Tag details:")
+                print(stdout)
+        
+        input("\n⏸️ Press Enter to continue...")
+    
+    def release_workflow(self) -> None:
+        """Complete release workflow"""
+        print("\n🚀 Release Workflow")
+        print("=" * 25)
+        
+        if self._confirm_action("This will: Pull → Add all → Commit → Tag → Push. Continue?"):
+            print("\n🔄 Executing release workflow...")
+            
+            # Pull latest changes
+            print("📥 Pulling latest changes...")
+            exit_code, stdout, stderr = self._run_git_command(['pull'], capture_output=False)
+            if exit_code != 0:
+                print(f"❌ Failed to pull: {stderr}")
+                return
+            
+            # Check for changes
+            exit_code, stdout, stderr = self._run_git_command(['status', '--porcelain'])
+            if stdout.strip():
+                # Add all changes
+                print("📁 Adding all changes...")
+                exit_code, stdout, stderr = self._run_git_command(['add', '.'])
+                if exit_code != 0:
+                    print(f"❌ Failed to add files: {stderr}")
+                    return
+                
+                # Commit
+                version = self._get_user_input("Enter version for release (e.g., v1.0.0)")
+                if not version:
+                    print("❌ Version cannot be empty")
+                    return
+                
+                message = f"Release {version}"
+                print("💾 Creating release commit...")
+                exit_code, stdout, stderr = self._run_git_command(['commit', '-m', message])
+                if exit_code != 0:
+                    print(f"❌ Failed to create commit: {stderr}")
+                    return
+            
+            # Create tag
+            tag_message = self._get_user_input("Enter release notes for tag (optional)")
+            print(f"🏷️ Creating tag: {version}")
+            args = ['tag']
+            if tag_message:
+                args.extend(['-a', version, '-m', tag_message])
+            else:
+                args.append(version)
+            
+            exit_code, stdout, stderr = self._run_git_command(args)
+            if exit_code != 0:
+                print(f"❌ Failed to create tag: {stderr}")
+                return
+            
+            # Push everything
+            print("🚀 Pushing changes and tags...")
+            exit_code, stdout, stderr = self._run_git_command(['push'], capture_output=False)
+            if exit_code != 0:
+                print(f"❌ Failed to push changes: {stderr}")
+                return
+            
+            exit_code, stdout, stderr = self._run_git_command(['push', '--tags'], capture_output=False)
+            if exit_code == 0:
+                print(f"✅ Release {version} completed successfully!")
+            else:
+                print(f"❌ Failed to push tags: {stderr}")
+        
+        input("\n⏸️ Press Enter to continue...")
+    
+    def version_control_menu(self) -> None:
+        """Version control submenu"""
+        while True:
+            options = [
+                "📋 Show Version Info",
+                "🏷️ Create Version Tag",
+                "📜 List Tags",
+                "🚀 Release Workflow",
+                "🔙 Back to Main Menu"
+            ]
+            
+            choice = self._show_menu("Version Control", options)
+            
+            if choice == 1:
+                self.show_version_info()
+            elif choice == 2:
+                self.create_version_tag()
+            elif choice == 3:
+                self.list_tags()
+            elif choice == 4:
+                self.release_workflow()
+            elif choice == 5:
+                break
+    
     def main_menu(self) -> None:
         """Main menu loop"""
         while True:
@@ -526,6 +741,7 @@ class GitHelperDialogue:
                 "📋 Show Differences",
                 "⚡ Quick Workflow",
                 "🔄 Sync Workflow",
+                "🏷️ Version Control",
                 "❌ Exit"
             ]
             
@@ -554,6 +770,8 @@ class GitHelperDialogue:
             elif choice == 11:
                 self.sync_workflow()
             elif choice == 12:
+                self.version_control_menu()
+            elif choice == 13:
                 print("\n👋 Goodbye!")
                 break
 
