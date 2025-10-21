@@ -10,7 +10,7 @@ An interactive, dialogue-style Git helper that provides a user-friendly menu-dri
 ## Usage
 
 ```bash
-python git_helper_dialogue.py
+o   
 ```
 
 ## Features

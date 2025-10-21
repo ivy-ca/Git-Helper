@@ -220,12 +220,39 @@ class GitHelperDialogue:
         print("\n🚀 Push Changes")
         print("=" * 20)
         
+        # Check if remote exists
+        exit_code, stdout, stderr = self._run_git_command(['remote', '-v'])
+        if not stdout.strip():
+            print("❌ No remote repositories configured")
+            print("\n💡 To fix this:")
+            print("1. Add a remote repository:")
+            print("   git remote add origin <repository-url>")
+            print("2. Or create a new repository on GitHub/GitLab")
+            input("\n⏸️ Press Enter to continue...")
+            return
+        
+        print("🌐 Available remotes:")
+        print(stdout)
+        
         # Get current branch
         exit_code, stdout, stderr = self._run_git_command(['branch', '--show-current'])
         current_branch = stdout.strip()
         
         # Get remote
         remote = self._get_user_input("Enter remote name", "origin")
+        
+        # Verify remote exists
+        exit_code, stdout, stderr = self._run_git_command(['remote', 'get-url', remote])
+        if exit_code != 0:
+            print(f"❌ Remote '{remote}' not found")
+            print("Available remotes:")
+            exit_code, stdout, stderr = self._run_git_command(['remote', '-v'])
+            print(stdout)
+            input("\n⏸️ Press Enter to continue...")
+            return
+        
+        remote_url = stdout.strip()
+        print(f"🔗 Remote URL: {remote_url}")
         
         # Ask for force push
         force = self._confirm_action("Force push? (Use with caution)")
@@ -236,6 +263,7 @@ class GitHelperDialogue:
         if force:
             args.append('--force')
         
+        # Try to push
         args.extend([remote, current_branch])
         
         exit_code, stdout, stderr = self._run_git_command(args, capture_output=False)
@@ -243,6 +271,27 @@ class GitHelperDialogue:
             print(f"✅ Successfully pushed to {remote}/{current_branch}")
         else:
             print(f"❌ Failed to push: {stderr}")
+            
+            # Provide specific guidance based on error
+            if "Repository not found" in stderr:
+                print("\n💡 Repository not found. Possible solutions:")
+                print("1. Check if the repository URL is correct")
+                print("2. Verify you have access to the repository")
+                print("3. Create a new repository:")
+                print("   - Go to GitHub/GitLab")
+                print("   - Create a new repository")
+                print("   - Update remote URL:")
+                print(f"   git remote set-url {remote} <new-repository-url>")
+            elif "Authentication failed" in stderr:
+                print("\n💡 Authentication failed. Possible solutions:")
+                print("1. Use personal access token instead of password")
+                print("2. Configure SSH keys")
+                print("3. Update credentials in Git credential manager")
+            elif "Permission denied" in stderr:
+                print("\n💡 Permission denied. Possible solutions:")
+                print("1. Check if you have write access to the repository")
+                print("2. Verify you're using the correct account")
+                print("3. Contact repository owner for access")
         
         input("\n⏸️ Press Enter to continue...")
     
@@ -716,6 +765,117 @@ class GitHelperDialogue:
             elif choice == 5:
                 break
     
+    def manage_remotes(self) -> None:
+        """Manage remote repositories"""
+        print("\n🌐 Remote Management")
+        print("=" * 25)
+        
+        options = [
+            "List remotes",
+            "Add remote",
+            "Update remote URL",
+            "Remove remote",
+            "Test remote connection",
+            "Back to main menu"
+        ]
+        
+        choice = self._show_menu("Remote Management", options)
+        
+        if choice == 1:  # List remotes
+            print("\n🌐 Configured remotes:")
+            print("=" * 30)
+            exit_code, stdout, stderr = self._run_git_command(['remote', '-v'])
+            if stdout.strip():
+                print(stdout)
+            else:
+                print("No remotes configured")
+        
+        elif choice == 2:  # Add remote
+            remote_name = self._get_user_input("Enter remote name", "origin")
+            remote_url = self._get_user_input("Enter remote URL (e.g., https://github.com/user/repo.git)")
+            
+            if remote_name and remote_url:
+                print(f"➕ Adding remote: {remote_name} -> {remote_url}")
+                exit_code, stdout, stderr = self._run_git_command(['remote', 'add', remote_name, remote_url])
+                if exit_code == 0:
+                    print(f"✅ Remote '{remote_name}' added successfully!")
+                else:
+                    print(f"❌ Failed to add remote: {stderr}")
+        
+        elif choice == 3:  # Update remote URL
+            # List current remotes
+            exit_code, stdout, stderr = self._run_git_command(['remote', '-v'])
+            if not stdout.strip():
+                print("❌ No remotes to update")
+                input("\n⏸️ Press Enter to continue...")
+                return
+            
+            print("Current remotes:")
+            print(stdout)
+            
+            remote_name = self._get_user_input("Enter remote name to update")
+            new_url = self._get_user_input("Enter new URL")
+            
+            if remote_name and new_url:
+                print(f"🔄 Updating remote: {remote_name} -> {new_url}")
+                exit_code, stdout, stderr = self._run_git_command(['remote', 'set-url', remote_name, new_url])
+                if exit_code == 0:
+                    print(f"✅ Remote '{remote_name}' updated successfully!")
+                else:
+                    print(f"❌ Failed to update remote: {stderr}")
+        
+        elif choice == 4:  # Remove remote
+            # List current remotes
+            exit_code, stdout, stderr = self._run_git_command(['remote', '-v'])
+            if not stdout.strip():
+                print("❌ No remotes to remove")
+                input("\n⏸️ Press Enter to continue...")
+                return
+            
+            print("Current remotes:")
+            print(stdout)
+            
+            remote_name = self._get_user_input("Enter remote name to remove")
+            
+            if remote_name:
+                if self._confirm_action(f"Remove remote '{remote_name}'?"):
+                    print(f"🗑️ Removing remote: {remote_name}")
+                    exit_code, stdout, stderr = self._run_git_command(['remote', 'remove', remote_name])
+                    if exit_code == 0:
+                        print(f"✅ Remote '{remote_name}' removed successfully!")
+                    else:
+                        print(f"❌ Failed to remove remote: {stderr}")
+        
+        elif choice == 5:  # Test remote connection
+            # List current remotes
+            exit_code, stdout, stderr = self._run_git_command(['remote', '-v'])
+            if not stdout.strip():
+                print("❌ No remotes to test")
+                input("\n⏸️ Press Enter to continue...")
+                return
+            
+            print("Current remotes:")
+            print(stdout)
+            
+            remote_name = self._get_user_input("Enter remote name to test")
+            
+            if remote_name:
+                print(f"🔍 Testing connection to '{remote_name}'...")
+                exit_code, stdout, stderr = self._run_git_command(['ls-remote', remote_name])
+                if exit_code == 0:
+                    print(f"✅ Connection to '{remote_name}' successful!")
+                    print("Available branches:")
+                    print(stdout)
+                else:
+                    print(f"❌ Connection to '{remote_name}' failed: {stderr}")
+                    print("\n💡 Possible solutions:")
+                    print("1. Check if the repository URL is correct")
+                    print("2. Verify you have access to the repository")
+                    print("3. Check your internet connection")
+                    print("4. Update remote URL if needed")
+        
+        input("\n⏸️ Press Enter to continue...")
+    
     def main_menu(self) -> None:
         """Main menu loop"""
         while True:
@@ -742,6 +902,7 @@ class GitHelperDialogue:
                 "⚡ Quick Workflow",
                 "🔄 Sync Workflow",
                 "🏷️ Version Control",
+                "🌐 Manage Remotes",
                 "❌ Exit"
             ]
             
@@ -772,6 +933,8 @@ class GitHelperDialogue:
             elif choice == 12:
                 self.version_control_menu()
             elif choice == 13:
+                self.manage_remotes()
+            elif choice == 14:
                 print("\n👋 Goodbye!")
                 break
 
